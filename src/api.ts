@@ -32,3 +32,7 @@ export function saveSheet(id: string, cells: Record<string, unknown>) {
     body: JSON.stringify({ cells }),
   });
 }
+
+export function warmUpServer() {
+  return request<unknown>("/db-check");
+}

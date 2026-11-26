@@ -3,7 +3,7 @@ import Cell from "./Cell";
 import type { Sheet, CellId } from "../logic/types";
 import type { DependentsMap } from "../logic/dependencyGraph";
 import { applyEdit, buildSheetFromRaw, toStorable } from "../logic/applyEdit";
-import { createSheet, loadSheet, saveSheet } from "../api";
+import { createSheet, loadSheet, saveSheet, warmUpServer } from "../api";
 
 const NUM_ROWS = 10;
 const NUM_COLS = 10;
@@ -25,7 +25,19 @@ export default function Grid() {
   const [sheetId, setSheetId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
+  const [serverWaking, setServerWaking] = useState(false);
 
+  // Pre-warm the Render server so the first save isn't slow
+  useEffect(() => {
+    const timer = setTimeout(() => setServerWaking(true), 1500);
+    warmUpServer()
+      .catch(() => {})
+      .finally(() => {
+        clearTimeout(timer);
+        setServerWaking(false);
+      });
+    return () => clearTimeout(timer);
+  }, []);
   // Load a saved sheet if the URL looks like /#<sheet-id>
   useEffect(() => {
     const idFromUrl = window.location.hash.slice(1);
@@ -121,6 +133,9 @@ export default function Grid() {
           New
         </button>
         <span className="text-sm text-gray-600">{status}</span>
+        {serverWaking && (
+  <span className="text-sm text-gray-600">Waking up the server, the first save may take up to a minute…</span>
+)}
       </div>
 
       <div className="inline-block border border-gray-400">
