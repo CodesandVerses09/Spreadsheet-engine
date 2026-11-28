@@ -1,75 +1,58 @@
-# React + TypeScript + Vite
+# Mini Spreadsheet Engine
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A spreadsheet built from scratch: formulas, dependency tracking, and cloud save/load. No spreadsheet libraries.
 
-Currently, two official plugins are available:
+**Live demo:** https://spreadsheet-engine.yadavshipra690.workers.dev
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+<!-- TODO: add a screenshot or GIF here -->
 
-## React Compiler
+## Features
+- Interactive grid with click-to-select and double-click-to-edit
+- Formulas with correct operator precedence (e.g. `=A1*2+B1`)
+- Automatic recalculation: changing a cell updates everything that depends on it
+- Circular reference detection (A1 → C1 → A1 is rejected)
+- Save and load through a REST API, with shareable links (`/#<sheet-id>`)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## How the engine works
+1. **Tokenizer** turns the formula text into tokens.
+2. **Recursive descent parser** builds an expression tree and handles operator precedence.
+3. **Tree-walking evaluator** computes the value, resolving cell references.
+4. **Dependency graph** records which cells depend on which. When a cell changes, a DFS visits only the affected cells and recalculates them in order.
+5. **Cycle detection** runs during that traversal and blocks edits that would create a loop.
 
-## Expanding the ESLint configuration
+Cells are stored in a sparse `Record<CellId, Cell>` rather than a 2D array, and each cell keeps its raw input and computed value separately, so the formula bar can show the original formula.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Architecture
+| Layer | Tech | Hosted on |
+|---|---|---|
+| Frontend | React, TypeScript, Vite, Tailwind | Cloudflare |
+| API | Express, TypeScript | Render |
+| Database | PostgreSQL | Neon |
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+API: `POST /sheets`, `GET /sheets/:id`, `PUT /sheets/:id`, `GET /db-check`
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Performance
+<!-- TODO: add measured numbers once virtualization/memoization is done -->
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Known limitations
+- Anyone with a sheet's link can view and edit it (no authentication yet).
+- The API runs on Render's free tier, so the first request after idle can take up to a minute. The app pings the server on page load to reduce this.
+- Fixed 10×10 grid.
 
+## Run locally
+Frontend:
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+Backend:
+```bash
+cd server
+npm install
+npm run dev   # TODO: confirm this is your start script
 ```
+Create `server/.env` with your Postgres connection string (variable name as used in your server code). Never commit this file.
+
+## Roadmap
+Viewport virtualization, memoized recalculation, authentication and permissions, real-time collaboration.
